@@ -1,0 +1,24 @@
+# Build directories
+/build/
+/build-*/
+/cmake-build-*/
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# CMake user presets
+CMakeUserPresets.json
+
+# Compiled artifacts
+*.o
+*.obj
+*.a
+*.lib
+*.dll
+*.so
+*.dylib
+*.exe
