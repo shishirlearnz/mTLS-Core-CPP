@@ -22,6 +22,23 @@ CMakeLists.txt       # target-based build
 - OpenSSL **3.x** (LibreSSL is *not* supported)
 - (fetched automatically) GoogleTest
 
+## OpenSSL strategy (important)
+
+This project needs a **real OpenSSL 3.x**, but it must **never** replace your
+system default TLS library. On macOS the system `openssl` is LibreSSL, which
+lacks TLS 1.3. We handle this by keeping both worlds strictly separate:
+
+- **The system default is untouched.** Brew's `openssl@3` is *keg-only* — it
+  lives under `/opt/homebrew/opt/openssl@3` and is never linked into
+  `/opt/homebrew/bin`, so `openssl` on your PATH remains LibreSSL.
+- **This project points at brew OpenSSL only inside its own build.** CMake sets
+  `OPENSSL_ROOT_DIR` as a local variable during *this* configure; it cannot
+  affect other projects or the machine. Priority: (1) an explicit
+  `-DOPENSSL_ROOT_DIR=...`, (2) auto-detect via `brew --prefix` (verified
+  against real headers), (3) standard search.
+- **LibreSSL is hard-rejected** by inspecting `opensslv.h`, so we can never
+  silently link the wrong library.
+
 ## Building
 
 ### macOS / Linux
@@ -32,8 +49,8 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-> macOS: the build auto-detects Homebrew OpenSSL. If not, pass
-> `-DOPENSSL_ROOT_DIR=/opt/homebrew/opt/openssl@3`.
+> macOS: the build auto-detects Homebrew OpenSSL (via `brew --prefix`). To
+> override explicitly, pass `-DOPENSSL_ROOT_DIR=/opt/homebrew/opt/openssl@3`.
 
 ### Windows (MSVC)
 

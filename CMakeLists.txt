@@ -108,22 +108,42 @@ function(mtls_core_enable_sanitizers target)
 endfunction()
 
 # -----------------------------------------------------------------------------
-# OpenSSL discovery
+# OpenSSL discovery — "use real OpenSSL, never override the system default"
 # -----------------------------------------------------------------------------
-# We need OpenSSL 3.x for the EVP AEAD APIs. Two real-world gotchas handled:
-#   1. On macOS, Apple ships LibreSSL (e.g. /usr/bin/openssl) which lacks TLS
-#      1.3 and reports a misleading version number. We prefer Homebrew's
-#      OpenSSL when present.
-#   2. We hard-reject LibreSSL by checking the version string, so we never
-#      silently build against the wrong library.
+# Strategy (scoped to THIS project's build only):
+#   * We never touch the system default. On macOS, /usr/bin/openssl is LibreSSL
+#     (it lacks TLS 1.3 and reports a misleading version number). We leave it
+#     exactly as-is; OPENSSL_ROOT_DIR here only tells *this* configure where to
+#     look. It is a plain CMake variable and cannot leak to other projects.
+#   * Priority:
+#       1. An explicit -DOPENSSL_ROOT_DIR=... from the user always wins.
+#       2. On macOS, ask Homebrew for the prefix of an actually-installed
+#          OpenSSL formula (prefer the 3.x family we target), and only accept a
+#          prefix whose headers really exist — so a dangling alias (e.g.
+#          `openssl` -> openssl@4 when @4 is not installed) is skipped.
+#       3. Elsewhere, let find_package() search the standard locations.
 
 if(NOT OPENSSL_ROOT_DIR AND APPLE)
-    foreach(_p "/opt/homebrew/opt/openssl@3" "/usr/local/opt/openssl@3")
-        if(EXISTS "${_p}")
-            set(OPENSSL_ROOT_DIR "${_p}")
-            break()
-        endif()
-    endforeach()
+    find_program(MTLS_BREW_EXECUTABLE brew)
+    if(MTLS_BREW_EXECUTABLE)
+        # brew's formula names drift over time (currently `openssl` is an alias
+        # for `openssl@4`, which is NOT installed here). Rather than hardcoding a
+        # versioned path, query brew and verify the headers actually exist.
+        foreach(_formula openssl@3 openssl openssl@1.1)
+            execute_process(
+                COMMAND "${MTLS_BREW_EXECUTABLE}" --prefix "${_formula}"
+                OUTPUT_VARIABLE _mtls_prefix
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+                ERROR_QUIET
+                RESULT_VARIABLE _mtls_rc
+            )
+            if(_mtls_rc EQUAL 0 AND _mtls_prefix
+               AND EXISTS "${_mtls_prefix}/include/openssl/evp.h")
+                set(OPENSSL_ROOT_DIR "${_mtls_prefix}")
+                break()
+            endif()
+        endforeach()
+    endif()
 endif()
 
 # On Windows, if OpenSSL is not auto-discovered, set OPENSSL_ROOT_DIR to the
