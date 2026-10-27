@@ -172,6 +172,7 @@ message(STATUS "Using OpenSSL ${OPENSSL_VERSION} from ${OPENSSL_ROOT_DIR}")
 # -----------------------------------------------------------------------------
 add_library(mtls_core STATIC
     src/version.cpp
+    src/secure_memory.cpp
 )
 add_library(mtls_core::mtls_core ALIAS mtls_core)
 
@@ -223,6 +224,7 @@ if(MTLS_CORE_BUILD_TESTS)
         tests/cipher_suite_test.cpp
         tests/record_constants_test.cpp
         tests/version_test.cpp
+        tests/secure_memory_test.cpp
     )
     target_link_libraries(mtls_core_tests PRIVATE
         mtls_core::mtls_core
